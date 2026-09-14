@@ -21,6 +21,18 @@ public class QuizManager : MonoBehaviour
     [SerializeField] private GameObject pointsPopupPrefab;
     [SerializeField] private Transform popupParent;
 
+    [SerializeField] private RectTransform progressBarFill;
+
+    [SerializeField] private Image star1;
+    [SerializeField] private Image star2;
+    [SerializeField] private Image star3;
+
+    [SerializeField] private Sprite emptyStar;
+    [SerializeField] private Sprite fullStar;
+    [SerializeField] private Animator star1Animator;
+    [SerializeField] private Animator star2Animator;
+    [SerializeField] private Animator star3Animator;
+
     private int currentQuestion = 0;
     private int points = 0;
     private float timer = 0f;
@@ -101,11 +113,12 @@ public class QuizManager : MonoBehaviour
         // Check answer
         if (selectedAnswer == question.correct)
         {
-            points++;
+            points += 10;
 
-            pointsText.text = (points * 10).ToString();
+            UpdateStars();
 
-            // Selected answer is correct → GREEN
+            pointsText.text = points.ToString();
+
             SetButtonColor(selectedButton, Color.green);
 
             ShowPointsPopup();
@@ -133,6 +146,8 @@ public class QuizManager : MonoBehaviour
 
             Debug.Log("Wrong!");
         }
+
+        UpdateProgressBar();
 
         // Show Next button
         nextButton.gameObject.SetActive(true);
@@ -186,6 +201,38 @@ public class QuizManager : MonoBehaviour
         else
         {
             FinishQuiz();
+        }
+    }
+
+    private void UpdateProgressBar()
+    {
+        float progress =
+            (float)(currentQuestion + 1) / csvReader.questions.Count;
+
+        progressBarFill.anchorMax =
+            new Vector2(progress, progressBarFill.anchorMax.y);
+    }
+
+    private void UpdateStars()
+    {
+        int correctAnswers = points / 10;
+
+        if (correctAnswers >= 4 && star1.sprite != fullStar)
+        {
+            star1.sprite = fullStar;
+            star1Animator.SetTrigger("Pop");
+        }
+
+        if (correctAnswers >= 7 && star2.sprite != fullStar)
+        {
+            star2.sprite = fullStar;
+            star2Animator.SetTrigger("Pop");
+        }
+
+        if (correctAnswers >= 10 && star3.sprite != fullStar)
+        {
+            star3.sprite = fullStar;
+            star3Animator.SetTrigger("Pop");
         }
     }
 
