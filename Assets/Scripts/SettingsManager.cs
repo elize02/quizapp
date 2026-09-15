@@ -78,6 +78,11 @@ public class SettingsManager : MonoBehaviour
         PlayerPrefs.Save();
 
         UpdateVolumeText();
+
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.UpdateVolume();
+        }
     }
 
     private void UpdateVolumeText()

@@ -40,6 +40,8 @@ public class ResultsManager : MonoBehaviour
 
         ShowStars();
         ShowGamificationUsed();
+
+        AudioManager.Instance.PlayResultsSound();
     }
 
     private void ShowStars()
@@ -78,6 +80,11 @@ public class ResultsManager : MonoBehaviour
         if (SettingsManager.StarsEnabled)
             text += "Stars";
 
-        gamificationUsedText.text = text.TrimEnd(',', ' ');
+        text = text.TrimEnd(',', ' ');
+
+        if (string.IsNullOrEmpty(text))
+            text = "  -";
+
+        gamificationUsedText.text = text;
     }
 }

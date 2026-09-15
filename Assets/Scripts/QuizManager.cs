@@ -1,70 +1,81 @@
-﻿using TMPro;
+﻿using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class QuizManager : MonoBehaviour
 {
+    [Header("Quiz")]
     [SerializeField] private CSVReader csvReader;
-
     [SerializeField] private TMP_Text questionText;
     [SerializeField] private TMP_Text questionCounter;
-
     [SerializeField] private Transform answerContent;
     [SerializeField] private GameObject answerButtonPrefab;
-
     [SerializeField] private Button nextButton;
-    [SerializeField] private TMP_Text timerText;
-    [SerializeField] private TMP_Text pointsText;
 
+    [Header("Timer")]
+    [SerializeField] private TMP_Text timerText;
+
+    [Header("Points")]
+    [SerializeField] private TMP_Text pointsText;
     [SerializeField] private GameObject pointsPopupPrefab;
     [SerializeField] private Transform popupParent;
+    [SerializeField] private GameObject pointsContainer;
 
+    [Header("Progress Bar")]
     [SerializeField] private RectTransform progressBarFill;
+    [SerializeField] private GameObject progressContainer;
 
+    [Header("Stars")]
     [SerializeField] private Image star1;
     [SerializeField] private Image star2;
     [SerializeField] private Image star3;
 
-    [SerializeField] private Sprite emptyStar;
     [SerializeField] private Sprite fullStar;
+
     [SerializeField] private Animator star1Animator;
     [SerializeField] private Animator star2Animator;
     [SerializeField] private Animator star3Animator;
 
-    [SerializeField] private GameObject pointsContainer;
-    [SerializeField] private GameObject progressContainer;
     [SerializeField] private GameObject starsContainer;
+
+
+    private List<Question> shuffledQuestions;
 
     private int currentQuestion = 0;
     private int points = 0;
     private float timer = 0f;
 
+
+    private class AnswerOption
+    {
+        public string text;
+        public string letter;
+
+        public AnswerOption(string text, string letter)
+        {
+            this.text = text;
+            this.letter = letter;
+        }
+    }
+
+
     private void Start()
     {
         ApplySettings();
 
+        shuffledQuestions = new List<Question>(csvReader.questions);
+        ShuffleQuestions();
+
         pointsText.text = "00";
+
         nextButton.gameObject.SetActive(false);
         nextButton.onClick.AddListener(NextQuestion);
 
         ShowQuestion();
     }
 
-    private void ApplySettings()
-    {
-        pointsContainer.SetActive(
-            SettingsManager.PointsEnabled
-        );
-
-        progressContainer.SetActive(
-            SettingsManager.ProgressBarEnabled
-        );
-
-        starsContainer.SetActive(
-            SettingsManager.StarsEnabled
-        );
-    }
 
     private void Update()
     {
@@ -76,32 +87,96 @@ public class QuizManager : MonoBehaviour
         timerText.text = minutes.ToString("00") + ":" + seconds.ToString("00");
     }
 
+
+    // -------------------------
+    // SETTINGS
+    // -------------------------
+
+    private void ApplySettings()
+    {
+        pointsContainer.SetActive(SettingsManager.PointsEnabled);
+        progressContainer.SetActive(SettingsManager.ProgressBarEnabled);
+        starsContainer.SetActive(SettingsManager.StarsEnabled);
+    }
+
+
+    // -------------------------
+    // QUESTIONS
+    // -------------------------
+
+    private void ShuffleQuestions()
+    {
+        for (int i = 0; i < shuffledQuestions.Count; i++)
+        {
+            int randomIndex = Random.Range(i, shuffledQuestions.Count);
+
+            Question temp = shuffledQuestions[i];
+            shuffledQuestions[i] = shuffledQuestions[randomIndex];
+            shuffledQuestions[randomIndex] = temp;
+        }
+    }
+
+
     private void ShowQuestion()
     {
-        Question question = csvReader.questions[currentQuestion];
+        Question question = shuffledQuestions[currentQuestion];
 
         questionText.text = question.question;
 
         questionCounter.text =
-            "Question " + (currentQuestion + 1) + " / " + csvReader.questions.Count;
+            "Question " + (currentQuestion + 1) +
+            " / " + shuffledQuestions.Count;
 
-        // Remove previous answer buttons
+        ClearAnswerButtons();
+
+        nextButton.gameObject.SetActive(false);
+
+        CreateShuffledAnswers(question);
+    }
+
+
+    private void ClearAnswerButtons()
+    {
         foreach (Transform child in answerContent)
         {
             Destroy(child.gameObject);
         }
-
-        // Hide Next button
-        nextButton.gameObject.SetActive(false);
-
-        // Create answer buttons
-        CreateAnswerButton(question.answerA, "A");
-        CreateAnswerButton(question.answerB, "B");
-        CreateAnswerButton(question.answerC, "C");
-        CreateAnswerButton(question.answerD, "D");
     }
 
-    private void CreateAnswerButton(string answer, string answerLetter)
+
+    private void CreateShuffledAnswers(Question question)
+    {
+        List<AnswerOption> answers = new List<AnswerOption>
+        {
+            new AnswerOption(question.answerA, "A"),
+            new AnswerOption(question.answerB, "B"),
+            new AnswerOption(question.answerC, "C"),
+            new AnswerOption(question.answerD, "D")
+        };
+
+        ShuffleAnswers(answers);
+
+        foreach (AnswerOption answer in answers)
+        {
+            CreateAnswerButton(answer);
+        }
+    }
+
+
+    private void ShuffleAnswers(List<AnswerOption> answers)
+    {
+        for (int i = 0; i < answers.Count; i++)
+        {
+            int randomIndex = Random.Range(i, answers.Count);
+
+            AnswerOption temp = answers[i];
+            answers[i] = answers[randomIndex];
+            answers[randomIndex] = temp;
+        }
+    }
+
+
+    private void CreateAnswerButton(AnswerOption answer)
     {
         GameObject newButton =
             Instantiate(answerButtonPrefab, answerContent);
@@ -109,77 +184,162 @@ public class QuizManager : MonoBehaviour
         TMP_Text buttonText =
             newButton.GetComponentInChildren<TMP_Text>();
 
-        buttonText.text = answer;
+        buttonText.text = answer.text;
 
-        Button button = newButton.GetComponent<Button>();
+        Button button =
+            newButton.GetComponent<Button>();
 
         button.onClick.AddListener(
-            () => CheckAnswer(answerLetter, button)
+            () => CheckAnswer(answer.letter, button)
         );
     }
 
+
+    // -------------------------
+    // ANSWER CHECKING
+    // -------------------------
+
     private void CheckAnswer(string selectedAnswer, Button selectedButton)
     {
-        Question question = csvReader.questions[currentQuestion];
+        Question question = shuffledQuestions[currentQuestion];
 
-        // Prevent clicking multiple answers
-        Button[] allButtons = answerContent.GetComponentsInChildren<Button>();
+        Button[] allButtons =
+            answerContent.GetComponentsInChildren<Button>();
 
-        foreach (Button button in allButtons)
-        {
-            button.interactable = false;
-        }
+        DisableAnswerButtons(allButtons);
 
-        // Check answer
         if (selectedAnswer == question.correct)
         {
-            points += 10;
-            
-            UpdateStars();
-
-            SetButtonColor(selectedButton, Color.green);
-
-            if (SettingsManager.PointsEnabled)
-            {
-                pointsText.text = points.ToString();
-                ShowPointsPopup();
-            }
-
-            Debug.Log("Correct! +" + 10 + " points");
+            HandleCorrectAnswer(selectedButton);
         }
         else
         {
-            // Selected answer is wrong → RED
-            SetButtonColor(selectedButton, Color.red);
-
-            // Find and highlight correct answer
-            foreach (Button button in allButtons)
-            {
-                TMP_Text text =
-                    button.GetComponentInChildren<TMP_Text>();
-
-                string buttonText = text.text;
-
-                if (buttonText == GetCorrectAnswerText(question))
-                {
-                    SetButtonColor(button, Color.green);
-                }
-            }
-
-            Debug.Log("Wrong!");
+            HandleWrongAnswer(selectedButton, allButtons, question);
         }
 
         UpdateProgressBar();
 
-        // Show Next button
         nextButton.gameObject.SetActive(true);
     }
 
+
+    private void DisableAnswerButtons(Button[] buttons)
+    {
+        foreach (Button button in buttons)
+        {
+            button.interactable = false;
+        }
+    }
+
+
+    private void HandleCorrectAnswer(Button selectedButton)
+    {
+        points += 10;
+
+        SetButtonColor(selectedButton, Color.green);
+
+        AudioManager.Instance.PlayCorrectSound();
+
+        if (SettingsManager.PointsEnabled)
+        {
+            pointsText.text = points.ToString();
+            ShowPointsPopup();
+        }
+
+        if (SettingsManager.StarsEnabled)
+        {
+            UpdateStars();
+        }
+
+        Debug.Log("Correct! +10 points");
+    }
+
+
+    private void HandleWrongAnswer(
+        Button selectedButton,
+        Button[] allButtons,
+        Question question)
+    {
+        SetButtonColor(selectedButton, Color.red);
+
+        AudioManager.Instance.PlayWrongSound();
+
+        string correctAnswer =
+            GetCorrectAnswerText(question);
+
+        foreach (Button button in allButtons)
+        {
+            TMP_Text text =
+                button.GetComponentInChildren<TMP_Text>();
+
+            if (text.text == correctAnswer)
+            {
+                SetButtonColor(button, Color.green);
+                break;
+            }
+        }
+
+        Debug.Log("Wrong!");
+    }
+
+
+    // -------------------------
+    // GAMIFICATION
+    // -------------------------
+
     private void ShowPointsPopup()
     {
-        GameObject popup = Instantiate(pointsPopupPrefab, popupParent);
+        GameObject popup =
+            Instantiate(pointsPopupPrefab, popupParent);
+
         popup.transform.SetAsLastSibling();
     }
+
+
+    private void UpdateProgressBar()
+    {
+        if (!SettingsManager.ProgressBarEnabled)
+            return;
+
+        float progress =
+            (float)(currentQuestion + 1) /
+            shuffledQuestions.Count;
+
+        progressBarFill.anchorMax =
+            new Vector2(progress, progressBarFill.anchorMax.y);
+    }
+
+
+    private void UpdateStars()
+    {
+        int correctAnswers = points / 10;
+
+        if (correctAnswers >= 4 &&
+            star1.sprite != fullStar)
+        {
+            star1.sprite = fullStar;
+            star1Animator.SetTrigger("Pop");
+        }
+
+        if (correctAnswers >= 7 &&
+            star2.sprite != fullStar)
+        {
+            star2.sprite = fullStar;
+            star2Animator.SetTrigger("Pop");
+        }
+
+        if (correctAnswers >= 10 &&
+            star3.sprite != fullStar)
+        {
+            star3.sprite = fullStar;
+            star3Animator.SetTrigger("Pop");
+        }
+    }
+
+
+    // -------------------------
+    // HELPERS
+    // -------------------------
 
     private string GetCorrectAnswerText(Question question)
     {
@@ -202,9 +362,11 @@ public class QuizManager : MonoBehaviour
         }
     }
 
+
     private void SetButtonColor(Button button, Color color)
     {
-        Image buttonImage = button.GetComponent<Image>();
+        Image buttonImage =
+            button.GetComponent<Image>();
 
         if (buttonImage != null)
         {
@@ -212,11 +374,16 @@ public class QuizManager : MonoBehaviour
         }
     }
 
+
+    // -------------------------
+    // NEXT / FINISH
+    // -------------------------
+
     private void NextQuestion()
     {
         currentQuestion++;
 
-        if (currentQuestion < csvReader.questions.Count)
+        if (currentQuestion < shuffledQuestions.Count)
         {
             ShowQuestion();
         }
@@ -226,42 +393,11 @@ public class QuizManager : MonoBehaviour
         }
     }
 
-    private void UpdateProgressBar()
-    {
-        float progress =
-            (float)(currentQuestion + 1) / csvReader.questions.Count;
-
-        progressBarFill.anchorMax =
-            new Vector2(progress, progressBarFill.anchorMax.y);
-    }
-
-    private void UpdateStars()
-    {
-        int correctAnswers = points / 10;
-
-        if (correctAnswers >= 4 && star1.sprite != fullStar)
-        {
-            star1.sprite = fullStar;
-            star1Animator.SetTrigger("Pop");
-        }
-
-        if (correctAnswers >= 7 && star2.sprite != fullStar)
-        {
-            star2.sprite = fullStar;
-            star2Animator.SetTrigger("Pop");
-        }
-
-        if (correctAnswers >= 10 && star3.sprite != fullStar)
-        {
-            star3.sprite = fullStar;
-            star3Animator.SetTrigger("Pop");
-        }
-    }
 
     private void FinishQuiz()
     {
         QuizData.points = points;
-        QuizData.totalQuestions = csvReader.questions.Count;
+        QuizData.totalQuestions = shuffledQuestions.Count;
         QuizData.completionTime = timer;
 
         Debug.Log("Quiz finished!");
