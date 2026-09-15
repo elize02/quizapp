@@ -1,7 +1,6 @@
 ﻿using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.SocialPlatforms.Impl;
 using UnityEngine.UI;
 
 public class QuizManager : MonoBehaviour
@@ -33,17 +32,38 @@ public class QuizManager : MonoBehaviour
     [SerializeField] private Animator star2Animator;
     [SerializeField] private Animator star3Animator;
 
+    [SerializeField] private GameObject pointsContainer;
+    [SerializeField] private GameObject progressContainer;
+    [SerializeField] private GameObject starsContainer;
+
     private int currentQuestion = 0;
     private int points = 0;
     private float timer = 0f;
 
     private void Start()
     {
+        ApplySettings();
+
         pointsText.text = "00";
         nextButton.gameObject.SetActive(false);
         nextButton.onClick.AddListener(NextQuestion);
 
         ShowQuestion();
+    }
+
+    private void ApplySettings()
+    {
+        pointsContainer.SetActive(
+            SettingsManager.PointsEnabled
+        );
+
+        progressContainer.SetActive(
+            SettingsManager.ProgressBarEnabled
+        );
+
+        starsContainer.SetActive(
+            SettingsManager.StarsEnabled
+        );
     }
 
     private void Update()
@@ -114,14 +134,16 @@ public class QuizManager : MonoBehaviour
         if (selectedAnswer == question.correct)
         {
             points += 10;
-
+            
             UpdateStars();
-
-            pointsText.text = points.ToString();
 
             SetButtonColor(selectedButton, Color.green);
 
-            ShowPointsPopup();
+            if (SettingsManager.PointsEnabled)
+            {
+                pointsText.text = points.ToString();
+                ShowPointsPopup();
+            }
 
             Debug.Log("Correct! +" + 10 + " points");
         }
@@ -246,6 +268,6 @@ public class QuizManager : MonoBehaviour
         Debug.Log("Score: " + points);
         Debug.Log("Time: " + timer + " seconds");
 
-        SceneManager.LoadScene(1);
+        SceneManager.LoadScene(4);
     }
 }

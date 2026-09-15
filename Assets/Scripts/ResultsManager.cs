@@ -1,6 +1,5 @@
 using UnityEngine;
 using TMPro;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class ResultsManager : MonoBehaviour
@@ -21,6 +20,8 @@ public class ResultsManager : MonoBehaviour
     [SerializeField] private Animator star2Animator;
     [SerializeField] private Animator star3Animator;
 
+    [SerializeField] private TMP_Text gamificationUsedText;
+
     private void Start()
     {
         int points = QuizData.points;
@@ -38,8 +39,7 @@ public class ResultsManager : MonoBehaviour
             "  " + minutes.ToString("00") + ":" + seconds.ToString("00");
 
         ShowStars();
-
-        retryButton.onClick.AddListener(RetryQuiz);
+        ShowGamificationUsed();
     }
 
     private void ShowStars()
@@ -65,8 +65,19 @@ public class ResultsManager : MonoBehaviour
         }
     }
 
-    private void RetryQuiz()
+    private void ShowGamificationUsed()
     {
-        SceneManager.LoadScene(0);
+        string text = "  ";
+
+        if (SettingsManager.PointsEnabled)
+            text += "Points, ";
+
+        if (SettingsManager.ProgressBarEnabled)
+            text += "Progress Bar, ";
+
+        if (SettingsManager.StarsEnabled)
+            text += "Stars";
+
+        gamificationUsedText.text = text.TrimEnd(',', ' ');
     }
 }
