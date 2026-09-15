@@ -1,0 +1,48 @@
+ID,Question,AnswerA,AnswerB,AnswerC,AnswerD,Correct
+1,Which of the following is not part of the Game Tetrad (Pentad)?,Mechanics,Gameplay,Story,Technology,B
+2,"Which of the following is not categorize under ""Serious Games""?",Exergames,Code Commanders,Counter Strike,Stateris,C
+3,What is the primary purpose of using Serious Games in education?,To increase the amount of screen time students have during the school day,To promote learning and skill development while also providing an enjoyable experience,To give an interactive and motivating introduction to a lecture topic,To replace traditional teaching methods with more engaging ones,B
+4,What factors make up the “flow” state according to the Curtiss Murphy definition?,Immersion,Feedback,UX,Inclusion,B
+5,"How is the “paradox of choice”, a state in which a person can hardly make a decision, triggered?",The consequences of the options are not clear,One of the options is clearly better than the others,Not all options are known,There are too little options,A
+6,Which of the following is not a category of goals?,Explicit,Implicit,Player made,Game made,D
+7,Below are Player Types except,Achievers,Killers,Casuals,Explorers,C
+8,What is a characteristic of Indie Game Development?,Small team,Controlled by market,Long term dev,High budget,A
+9,Which aspect belong to the “Planning & Organization” phase of the game development process?,Market analysis,Marketing,Development Documentation,Game Design Document,D
+10,Which aspect belong to the “Pre-Production” phase of the game development process?,Market analysis,Marketing,Development Documentation,Game Design Document,A
+11,Which aspect belong to the “Production” phase of the game development process?,Market analysis,Marketing,Development Documentation,Game Design Document,C
+12,Which aspect belong to the “Post-Production” phase of the game development process?,Market analysis,Marketing,Development Documentation,Game Design Document,B
+13,What is the goal of design thinking method?,Repeating an idea as often as possible,Only improve existing solutions,Develop user-centered innovations that solve real problems,Develop a finished product as quickly as possible,C
+14,Which of these statements does not describe a central feature of design thinking?,The needs of the target group are taken into account,New solutions are tested together with users,It is based exclusively on technical feasibility,A lot of user data is collected,C
+15,What is the problem of serious games?,Most Serious Games are not fun,No one buys Serious Games,Serious Games are not effective,Serious Games are not advertised as much as other games,A
+16,What are the UX Research Methods to gain empathy?,Surveys,Diary Studies,Interviews,All are correct,D
+17,What is (Entertainment) Game?,A game with a focus on (solely) fun and profit,Game created with the intention to entertain and achieve an additional goal (characterising goal),The addition of game elements to a non-game area,The usage of entertainment games for a serious context,A
+18,What is Serious Game?,A game with a focus on (solely) fun and profit,Game created with the intention to entertain and achieve an additional goal (characterising goal),The addition of game elements to a non-game area,The usage of entertainment games for a serious context,B
+19,What is Gamification?,A game with a focus on (solely) fun and profit,Game created with the intention to entertain and achieve an additional goal (characterising goal),The addition of game elements to a non-game area,The usage of entertainment games for a serious context,C
+20,What is Serious Gaming?,A game with a focus on (solely) fun and profit,Game created with the intention to entertain and achieve an additional goal (characterising goal),The addition of game elements to a non-game area,The usage of entertainment games for a serious context,D
+21,Which of these are not the reason why we need User Personas?,Empathy with target group,"User-centred, customised solutions",Goals and orientation,Effective Marketing,D
+22,What is Stage 1 of the Design Thinking Process?,Empathize,Define,Ideate,Implement,A
+23,What is Stage 2 of the Design Thinking Process?,Ideate,Test,Define,Prototype,C
+24,What is Stage 3 of the Design Thinking Process?,Ideate,Prototype,Test,Implement,A
+25,What is Stage 4 of the Design Thinking Process?,Test,Empathize,Define,Prototype,D
+26,What is Stage 5 of the Design Thinking Process?,Prototype,Test,Empathize,Define,B
+27,What is Stage 6 of the Design Thinking Process?,Ideate,Test,Implement,Empathize,C
+28,What describes non-manifold geometry and must be avoided?,Meshes that only consist of quads,Edges shared by more than two faces,Meshes that only consist of triangles,Smoothing the face normals,B
+29,What is the goal of a subject matter expert in regards to authoring?,They have learning content,They want to explore dark matter,They want to adapt and evolve an authoring tool,They want to try out something new,A
+30,What are authoring tools used for?,To stream music and videos,To plan vacations,To create and organize instructional and learning content,To calculate astronomical orbits,C
+31,What are the two most well-known algorithms in pathfinding?,Dijkstra's and A*,Dijkstra's and BFS,Greedy and A*,BFS and DFS,A
+32,What is Procedural Content Generation?,Using neural networks to automatically learn and extract features from raw data,Enabling computers to learn and make decisions without being programmed for a specific task,Find the shortest path from start node to goal node,Automatic creation of game content,D
+33,What is Pathfinding?,Using neural networks to automatically learn and extract features from raw data,Enables computers to learn and make decisions without being programmed for a specific task,Find the shortest path from start node to goal node,Automatic creation of game content,C
+34,What is the disadvantage of Procedural Content Generation?,Not scalable,Not cost effective,Not replayable,Hard to debug and test,D
+35,Which of the following is not a learning technique under Machine Learning?,Quality Learning,Supervised Learning,Unsupervised Learning,Reinforcement Learning,A
+36,What is the advantage of 3D Art Pipeline?,"Easy to go back without redoing work, iteration is faster",Convenient to build environments or models with repetitive or rule-based patterns,"Full manual control over every polygon, vertex, and detail",Base parameters can be easily tweaked later,C
+37,Which of these are not Sequencing?,Multiple,Linear,Branching,Nested Modules,A
+38,What is the Storytelling model proposed by Aristoteles?,Change Points,Drei-Akt-Modell,Hero's Journey,Five act pyramidial structure,B
+39,What is the Storytelling model proposed by Gustav Freytag?,Change Points,Drei-Akt-Modell,Hero's Journey,Five act pyramidial structure,D
+40,What is the Storytelling model proposed by Linda Seger?,Change Points,Drei-Akt-Modell,Hero's Journey,Five act pyramidial structure,A
+41,The Narrative Paradox describes the conflict between,Players and Developers,Narrative and Gameplay,Player Control and Dramatic Control,Player Control and Game Control,C
+42,Good character design... ,enables to read the character quickly and clearly,is minimalistic,should avoid playing with archetypes at all costs,only works with stylized characters,A
+43,What makes up the baby schema in character design?,Smaller forehead,Smaller eyes,Larger ears,Smaller and shorter snout/nose,D
+44,"Which of the following shapes give the impression of ""harmless, approchable, and changeable""?",Circle,Triangle,Square,Pentagon,A
+45,"Which of the following shapes give the impression of ""dynamic, dangerous, and unpredictable""?",Circle,Triangle,Square,Pentagon,B
+46,"Which of the following shapes give the impression of ""supportive, reliable, and inflexible""?",Circle,Triangle,Square,Pentagon,C
+47,Which of the following is not a basis of character design?,Silhouettes,Personality,Shape Language,Proportions,B

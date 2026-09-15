@@ -66,7 +66,13 @@ public class QuizManager : MonoBehaviour
         ApplySettings();
 
         shuffledQuestions = new List<Question>(csvReader.questions);
+
         ShuffleQuestions();
+
+        if (shuffledQuestions.Count > 10)
+        {
+            shuffledQuestions.RemoveRange(10, shuffledQuestions.Count - 10);
+        }
 
         pointsText.text = "00";
 
