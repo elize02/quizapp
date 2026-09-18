@@ -10,14 +10,20 @@ public class QuizDataUploader : MonoBehaviour
     private const int REQUEST_TIMEOUT = 10;
     private const int MAX_RETRIES = 1;
 
+    // =========================================================
+    // ATTEMPT DATA
+    // =========================================================
+
     private class AttemptData
     {
         public string url;
         public string participantID;
         public int attempts;
 
+        // Google Sheets row assigned by START
         public int row = 0;
 
+        // Completion data
         public int score;
         public int totalQuestions;
         public int correctAnswers;
@@ -25,14 +31,58 @@ public class QuizDataUploader : MonoBehaviour
         public float completionTime;
         public string gamificationUsed;
 
+        // START state
         public bool startFinished = false;
+        public bool startFailed = false;
+
+        // COMPLETE state
         public bool completeQueued = false;
     }
 
-    private Queue<AttemptData> attemptQueue =
-        new Queue<AttemptData>();
+    // =========================================================
+    // REQUEST DATA
+    // =========================================================
+
+    private enum RequestType
+    {
+        Start,
+        Complete
+    }
+
+    private class QueuedRequest
+    {
+        public RequestType type;
+        public AttemptData attempt;
+    }
+
+    // =========================================================
+    // QUEUE / ACTIVE ATTEMPTS
+    // =========================================================
+
+    // Requests are processed strictly in the order they arrive.
+    //
+    // Example:
+    //
+    // START 1
+    // START 2
+    // COMPLETE 1
+    // START 3
+    // COMPLETE 2
+    // COMPLETE 3
+
+    private Queue<QueuedRequest> requestQueue =
+        new Queue<QueuedRequest>();
+
+    // Keeps attempts available so COMPLETE can find
+    // the correct row later.
+    private List<AttemptData> activeAttempts =
+        new List<AttemptData>();
 
     private bool isProcessing = false;
+
+    // =========================================================
+    // UNITY SETUP
+    // =========================================================
 
     private void Awake()
     {
@@ -46,6 +96,10 @@ public class QuizDataUploader : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
+    // =========================================================
+    // START ATTEMPT
+    // =========================================================
+
     public void StartAttempt(
         string url,
         string participantID,
@@ -57,16 +111,30 @@ public class QuizDataUploader : MonoBehaviour
         data.participantID = participantID;
         data.attempts = attempts;
 
-        attemptQueue.Enqueue(data);
+        // Keep this attempt available for COMPLETE.
+        activeAttempts.Add(data);
+
+        // Add START request.
+        QueuedRequest request = new QueuedRequest();
+
+        request.type = RequestType.Start;
+        request.attempt = data;
+
+        requestQueue.Enqueue(request);
 
         Debug.Log(
-            "Added attempt " + attempts +
-            " to upload queue. Queue size: " +
-            attemptQueue.Count
+            "[QUEUE] Added START for attempt "
+            + attempts
+            + ". Queue size: "
+            + requestQueue.Count
         );
 
         ProcessQueue();
     }
+
+    // =========================================================
+    // COMPLETE ATTEMPT
+    // =========================================================
 
     public void CompleteAttempt(
         int attempts,
@@ -79,8 +147,8 @@ public class QuizDataUploader : MonoBehaviour
     {
         AttemptData target = null;
 
-        // Find the exact attempt that was completed.
-        foreach (AttemptData data in attemptQueue)
+        // Find the corresponding attempt.
+        foreach (AttemptData data in activeAttempts)
         {
             if (data.attempts == attempts &&
                 !data.completeQueued)
@@ -93,121 +161,200 @@ public class QuizDataUploader : MonoBehaviour
         if (target == null)
         {
             Debug.LogError(
-                "Could not find attempt " +
-                attempts +
-                " in upload queue."
+                "[QUEUE] Could not find attempt "
+                + attempts
+                + " for COMPLETE."
             );
 
             return;
         }
 
+        // Store completion data.
         target.score = score;
         target.totalQuestions = totalQuestions;
         target.correctAnswers = correctAnswers;
         target.accuracy = accuracy;
         target.completionTime = completionTime;
         target.gamificationUsed = gamificationUsed;
+
         target.completeQueued = true;
 
+        // Add COMPLETE request.
+        QueuedRequest request = new QueuedRequest();
+
+        request.type = RequestType.Complete;
+        request.attempt = target;
+
+        requestQueue.Enqueue(request);
+
         Debug.Log(
-            "Completion added for attempt " +
-            attempts
+            "[QUEUE] Added COMPLETE for attempt "
+            + attempts
+            + ". Queue size: "
+            + requestQueue.Count
         );
 
         ProcessQueue();
     }
+
+    // =========================================================
+    // PROCESS QUEUE
+    // =========================================================
 
     private void ProcessQueue()
     {
         if (isProcessing)
             return;
 
-        if (attemptQueue.Count == 0)
+        if (requestQueue.Count == 0)
             return;
 
         isProcessing = true;
 
-        StartCoroutine(ProcessCurrentAttempt());
+        StartCoroutine(ProcessNextRequest());
     }
 
-    private IEnumerator ProcessCurrentAttempt()
+    private IEnumerator ProcessNextRequest()
     {
-        AttemptData data = attemptQueue.Peek();
+        // Take the FIRST request.
+        QueuedRequest request =
+            requestQueue.Dequeue();
 
-        // -------------------------
+        AttemptData data = request.attempt;
+
+        // =====================================================
         // START
-        // -------------------------
+        // =====================================================
 
-        if (!data.startFinished)
+        if (request.type == RequestType.Start)
         {
             yield return StartCoroutine(
                 SendStart(data)
             );
 
-            // Start failed.
             if (!data.startFinished)
             {
-                isProcessing = false;
-                yield break;
+                data.startFailed = true;
+
+                Debug.LogError(
+                    "[QUEUE] START failed permanently for attempt "
+                    + data.attempts
+                );
+
+                // If a COMPLETE request already exists for this
+                // attempt, it cannot succeed.
+                //
+                // We remove the attempt from active tracking.
+                activeAttempts.Remove(data);
             }
         }
 
-        // -------------------------
+        // =====================================================
         // COMPLETE
-        // -------------------------
+        // =====================================================
 
-        if (data.completeQueued)
+        else if (request.type == RequestType.Complete)
         {
-            bool completedSuccessfully = false;
+            // -------------------------------------------------
+            // IMPORTANT:
+            //
+            // COMPLETE may arrive while START is still
+            // communicating with Apps Script.
+            //
+            // Instead of failing, wait for START.
+            // -------------------------------------------------
 
-            yield return StartCoroutine(
-                SendComplete(
-                    data,
-                    success =>
-                    {
-                        completedSuccessfully = success;
-                    }
-                )
-            );
-
-            if (completedSuccessfully)
+            if (!data.startFinished)
             {
                 Debug.Log(
-                    "Attempt " +
-                    data.attempts +
-                    " finished successfully."
+                    "[QUEUE] COMPLETE waiting for START "
+                    + "to finish for attempt "
+                    + data.attempts
                 );
+
+                // Wait until START finishes or fails.
+                while (!data.startFinished &&
+                       !data.startFailed)
+                {
+                    yield return null;
+                }
+            }
+
+            // START failed permanently.
+            if (data.startFailed)
+            {
+                Debug.LogError(
+                    "[QUEUE] Cannot COMPLETE attempt "
+                    + data.attempts
+                    + " because START failed."
+                );
+
+                activeAttempts.Remove(data);
             }
             else
             {
-                Debug.LogError(
-                    "Attempt " +
-                    data.attempts +
-                    " failed after retries. Removing from queue so later attempts are not blocked."
-                );
-            }
+                // START succeeded.
+                bool completedSuccessfully = false;
 
-            attemptQueue.Dequeue();
+                yield return StartCoroutine(
+                    SendComplete(
+                        data,
+                        success =>
+                        {
+                            completedSuccessfully = success;
+                        }
+                    )
+                );
+
+                if (completedSuccessfully)
+                {
+                    Debug.Log(
+                        "[QUEUE] Attempt "
+                        + data.attempts
+                        + " completed successfully."
+                    );
+                }
+                else
+                {
+                    Debug.LogError(
+                        "[QUEUE] COMPLETE failed permanently "
+                        + "for attempt "
+                        + data.attempts
+                    );
+                }
+
+                // Attempt is finished.
+                activeAttempts.Remove(data);
+            }
         }
 
         isProcessing = false;
 
-        // Process next attempt.
-        if (attemptQueue.Count > 0)
+        // Process next request.
+        if (requestQueue.Count > 0)
         {
             StartCoroutine(StartNextProcess());
         }
     }
 
+    // =========================================================
+    // START NEXT REQUEST
+    // =========================================================
+
     private IEnumerator StartNextProcess()
     {
+        // Wait one frame.
         yield return null;
 
         ProcessQueue();
     }
 
+    // =========================================================
+    // SEND START
+    // =========================================================
+
     private IEnumerator SendStart(
-    AttemptData data)
+        AttemptData data)
     {
         string url =
             data.url
@@ -224,7 +371,9 @@ public class QuizDataUploader : MonoBehaviour
             + data.attempts
         );
 
-        for (int retry = 0; retry <= MAX_RETRIES; retry++)
+        for (int retry = 0;
+             retry <= MAX_RETRIES;
+             retry++)
         {
             if (retry > 0)
             {
@@ -262,12 +411,24 @@ public class QuizDataUploader : MonoBehaviour
                     + response
                 );
 
-                StartAttemptResponse result =
-                    JsonUtility.FromJson<StartAttemptResponse>(
-                        response
-                    );
+                StartAttemptResponse result = null;
 
-                if (result.success)
+                try
+                {
+                    result =
+                        JsonUtility.FromJson<StartAttemptResponse>(
+                            response
+                        );
+                }
+                catch
+                {
+                    Debug.LogError(
+                        "[UPLOAD] Could not parse START response."
+                    );
+                }
+
+                if (result != null &&
+                    result.success)
                 {
                     data.row = result.row;
                     data.startFinished = true;
@@ -305,11 +466,17 @@ public class QuizDataUploader : MonoBehaviour
             "[UPLOAD] START permanently failed for attempt "
             + data.attempts
         );
+
+        data.startFailed = true;
     }
 
+    // =========================================================
+    // SEND COMPLETE
+    // =========================================================
+
     private IEnumerator SendComplete(
-    AttemptData data,
-    System.Action<bool> callback)
+        AttemptData data,
+        System.Action<bool> callback)
     {
         string url =
             data.url
@@ -333,7 +500,9 @@ public class QuizDataUploader : MonoBehaviour
             + data.row
         );
 
-        for (int retry = 0; retry <= MAX_RETRIES; retry++)
+        for (int retry = 0;
+             retry <= MAX_RETRIES;
+             retry++)
         {
             if (retry > 0)
             {
@@ -380,7 +549,10 @@ public class QuizDataUploader : MonoBehaviour
                             response
                         );
 
-                    googleSuccess = result.success;
+                    if (result != null)
+                    {
+                        googleSuccess = result.success;
+                    }
                 }
                 catch
                 {
@@ -415,11 +587,14 @@ public class QuizDataUploader : MonoBehaviour
         Debug.LogError(
             "[UPLOAD] COMPLETE permanently failed for attempt "
             + data.attempts
-            + ". Moving to next queue item."
         );
 
         callback(false);
     }
+
+    // =========================================================
+    // RESPONSE CLASS
+    // =========================================================
 
     [System.Serializable]
     private class StartAttemptResponse
