@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.Networking;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -68,7 +67,12 @@ public class QuizManager : MonoBehaviour
     {
         SetParticipantID();
         SetAttempt();
-        StartCoroutine(StartAttempt());
+
+        QuizDataUploader.Instance.StartAttempt(
+            googleSheetsURL,
+            QuizData.participantID,
+            QuizData.attempts
+            );
 
         ApplySettings();
 
@@ -88,46 +92,6 @@ public class QuizManager : MonoBehaviour
 
         ShowQuestion();
     }
-
-    private IEnumerator StartAttempt()
-    {
-        string url = googleSheetsURL
-            + "?action=start"
-            + "&participantID=" + UnityWebRequest.EscapeURL(QuizData.participantID)
-            + "&attempts=" + QuizData.attempts;
-
-        UnityWebRequest request = UnityWebRequest.Get(url);
-
-        yield return request.SendWebRequest();
-
-        if (request.result == UnityWebRequest.Result.Success)
-        {
-            string response = request.downloadHandler.text;
-
-            Debug.Log("Attempt started: " + response);
-
-            StartAttemptResponse data =
-                JsonUtility.FromJson<StartAttemptResponse>(response);
-
-            if (data.success)
-            {
-                QuizData.sheetRow = data.row;
-                Debug.Log("Sheet row saved: " + QuizData.sheetRow);
-            }
-        }
-        else
-        {
-            Debug.LogError("Failed to start attempt: " + request.error);
-        }
-    }
-
-    [System.Serializable]
-    private class StartAttemptResponse
-    {
-        public bool success;
-        public int row;
-    }
-
 
     private void Update()
     {
@@ -502,10 +466,10 @@ public class QuizManager : MonoBehaviour
         QuizData.correctAnswers = correctAnswers;
         QuizData.completionTime = timer;
 
-        StartCoroutine(CompleteAttempt());
+        CompleteAttempt();
     }
 
-    private IEnumerator CompleteAttempt()
+    private void CompleteAttempt()
     {
         float accuracy =
             ((float)correctAnswers / shuffledQuestions.Count) * 100f;
@@ -526,29 +490,15 @@ public class QuizManager : MonoBehaviour
         if (string.IsNullOrEmpty(gamificationUsed))
             gamificationUsed = "-";
 
-        string url = googleSheetsURL
-            + "?action=complete"
-            + "&row=" + QuizData.sheetRow
-            + "&score=" + points
-            + "&totalQuestions=" + shuffledQuestions.Count
-            + "&correctAnswers=" + correctAnswers
-            + "&accuracy=" + accuracy
-            + "&completionTime=" + timer
-            + "&attempts=" + QuizData.attempts
-            + "&gamificationUsed=" + UnityWebRequest.EscapeURL(gamificationUsed);
-
-        UnityWebRequest request = UnityWebRequest.Get(url);
-
-        yield return request.SendWebRequest();
-
-        if (request.result == UnityWebRequest.Result.Success)
-        {
-            Debug.Log("Attempt completed successfully.");
-        }
-        else
-        {
-            Debug.LogError("Failed to complete attempt: " + request.error);
-        }
+        QuizDataUploader.Instance.CompleteAttempt(
+            QuizData.attempts,
+            points,
+            shuffledQuestions.Count,
+            correctAnswers,
+            accuracy,
+            timer,
+            gamificationUsed
+        );
 
         SceneManager.LoadScene(4);
     }
