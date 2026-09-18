@@ -7,6 +7,9 @@ public class QuizDataUploader : MonoBehaviour
 {
     public static QuizDataUploader Instance;
 
+    private const int REQUEST_TIMEOUT = 10;
+    private const int MAX_RETRIES = 1;
+
     private class AttemptData
     {
         public string url;
@@ -174,17 +177,17 @@ public class QuizDataUploader : MonoBehaviour
                     data.attempts +
                     " finished successfully."
                 );
-
-                attemptQueue.Dequeue();
             }
             else
             {
                 Debug.LogError(
                     "Attempt " +
                     data.attempts +
-                    " was NOT removed because completion failed."
+                    " failed after retries. Removing from queue so later attempts are not blocked."
                 );
             }
+
+            attemptQueue.Dequeue();
         }
 
         isProcessing = false;
@@ -204,7 +207,7 @@ public class QuizDataUploader : MonoBehaviour
     }
 
     private IEnumerator SendStart(
-        AttemptData data)
+    AttemptData data)
     {
         string url =
             data.url
@@ -217,64 +220,96 @@ public class QuizDataUploader : MonoBehaviour
             + data.attempts;
 
         Debug.Log(
-            "Starting attempt " +
-            data.attempts
+            "[UPLOAD] START request for attempt "
+            + data.attempts
         );
 
-        UnityWebRequest request =
-            UnityWebRequest.Get(url);
-
-        yield return request.SendWebRequest();
-
-        if (request.result ==
-            UnityWebRequest.Result.Success)
+        for (int retry = 0; retry <= MAX_RETRIES; retry++)
         {
-            string response =
-                request.downloadHandler.text;
+            if (retry > 0)
+            {
+                Debug.Log(
+                    "[UPLOAD] Retrying START for attempt "
+                    + data.attempts
+                    + "..."
+                );
+            }
+
+            UnityWebRequest request =
+                UnityWebRequest.Get(url);
+
+            request.timeout = REQUEST_TIMEOUT;
+
+            yield return request.SendWebRequest();
 
             Debug.Log(
-                "Start response: " +
-                response
+                "[UPLOAD] START result: "
+                + request.result
+                + " | HTTP: "
+                + request.responseCode
+                + " | Error: "
+                + request.error
             );
 
-            StartAttemptResponse result =
-                JsonUtility.FromJson<StartAttemptResponse>(
-                    response
-                );
-
-            if (result.success)
+            if (request.result ==
+                UnityWebRequest.Result.Success)
             {
-                data.row = result.row;
-                data.startFinished = true;
+                string response =
+                    request.downloadHandler.text;
 
                 Debug.Log(
-                    "Attempt " +
-                    data.attempts +
-                    " assigned row " +
-                    data.row
+                    "[UPLOAD] START response: "
+                    + response
+                );
+
+                StartAttemptResponse result =
+                    JsonUtility.FromJson<StartAttemptResponse>(
+                        response
+                    );
+
+                if (result.success)
+                {
+                    data.row = result.row;
+                    data.startFinished = true;
+
+                    Debug.Log(
+                        "[UPLOAD] Attempt "
+                        + data.attempts
+                        + " assigned row "
+                        + data.row
+                    );
+
+                    request.Dispose();
+                    yield break;
+                }
+
+                Debug.LogError(
+                    "[UPLOAD] Google rejected START: "
+                    + response
                 );
             }
             else
             {
                 Debug.LogError(
-                    "Google Sheets failed to start attempt."
+                    "[UPLOAD] START failed for attempt "
+                    + data.attempts
+                    + ": "
+                    + request.error
                 );
             }
-        }
-        else
-        {
-            Debug.LogError(
-                "Start request failed: " +
-                request.error
-            );
+
+            request.Dispose();
         }
 
-        request.Dispose();
+        Debug.LogError(
+            "[UPLOAD] START permanently failed for attempt "
+            + data.attempts
+        );
     }
 
     private IEnumerator SendComplete(
-        AttemptData data,
-        System.Action<bool> callback)
+    AttemptData data,
+    System.Action<bool> callback)
     {
         string url =
             data.url
@@ -292,44 +327,98 @@ public class QuizDataUploader : MonoBehaviour
             );
 
         Debug.Log(
-            "Completing attempt " +
-            data.attempts +
-            " on row " +
-            data.row
+            "[UPLOAD] COMPLETE request for attempt "
+            + data.attempts
+            + " on row "
+            + data.row
         );
 
-        UnityWebRequest request =
-            UnityWebRequest.Get(url);
-
-        yield return request.SendWebRequest();
-
-        bool success = false;
-
-        if (request.result ==
-            UnityWebRequest.Result.Success)
+        for (int retry = 0; retry <= MAX_RETRIES; retry++)
         {
+            if (retry > 0)
+            {
+                Debug.Log(
+                    "[UPLOAD] Retrying COMPLETE for attempt "
+                    + data.attempts
+                    + "..."
+                );
+            }
+
+            UnityWebRequest request =
+                UnityWebRequest.Get(url);
+
+            request.timeout = REQUEST_TIMEOUT;
+
+            yield return request.SendWebRequest();
+
             Debug.Log(
-                "Upload successful for attempt " +
-                data.attempts +
-                " on row " +
-                data.row
+                "[UPLOAD] COMPLETE result: "
+                + request.result
+                + " | HTTP: "
+                + request.responseCode
+                + " | Error: "
+                + request.error
             );
 
-            success = true;
-        }
-        else
-        {
-            Debug.LogError(
-                "Complete request failed for row " +
-                data.row +
-                ": " +
-                request.error
-            );
+            if (request.result ==
+                UnityWebRequest.Result.Success)
+            {
+                string response =
+                    request.downloadHandler.text;
+
+                Debug.Log(
+                    "[UPLOAD] COMPLETE response: "
+                    + response
+                );
+
+                bool googleSuccess = false;
+
+                try
+                {
+                    StartAttemptResponse result =
+                        JsonUtility.FromJson<StartAttemptResponse>(
+                            response
+                        );
+
+                    googleSuccess = result.success;
+                }
+                catch
+                {
+                    Debug.LogError(
+                        "[UPLOAD] Could not read COMPLETE response."
+                    );
+                }
+
+                request.Dispose();
+
+                if (googleSuccess)
+                {
+                    Debug.Log(
+                        "[UPLOAD] COMPLETE successful for attempt "
+                        + data.attempts
+                        + " on row "
+                        + data.row
+                    );
+
+                    callback(true);
+                    yield break;
+                }
+
+                Debug.LogError(
+                    "[UPLOAD] Google returned success=false."
+                );
+            }
+
+            request.Dispose();
         }
 
-        request.Dispose();
+        Debug.LogError(
+            "[UPLOAD] COMPLETE permanently failed for attempt "
+            + data.attempts
+            + ". Moving to next queue item."
+        );
 
-        callback(success);
+        callback(false);
     }
 
     [System.Serializable]
