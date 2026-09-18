@@ -25,6 +25,6 @@ public class SceneNav : MonoBehaviour
 
     public void OpenFeedback()
     {
-        Application.OpenURL("https://youtu.be/dQw4w9WgXcQ");
+        Application.OpenURL("https://forms.gle/fky79t9qkSHscQ218");
     }
 }

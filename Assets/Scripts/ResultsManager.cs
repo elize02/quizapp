@@ -29,7 +29,7 @@ public class ResultsManager : MonoBehaviour
 
         pointsText.text = "  " + points.ToString();
 
-        float accuracy = ((float)(points / 10) / total) * 100f;
+        float accuracy = ((float)QuizData.correctAnswers / total) * 100f;
         accuracyText.text = "  " + accuracy.ToString("0") + "%";
 
         int minutes = Mathf.FloorToInt(QuizData.completionTime / 60f);
@@ -46,7 +46,7 @@ public class ResultsManager : MonoBehaviour
 
     private void ShowStars()
     {
-        int correctAnswers = QuizData.points / 10;
+        int correctAnswers = QuizData.correctAnswers;
 
         if (correctAnswers >= 4)
         {

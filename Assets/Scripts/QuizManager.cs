@@ -1,6 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Networking;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -31,21 +33,22 @@ public class QuizManager : MonoBehaviour
     [SerializeField] private Image star1;
     [SerializeField] private Image star2;
     [SerializeField] private Image star3;
-
     [SerializeField] private Sprite fullStar;
-
     [SerializeField] private Animator star1Animator;
     [SerializeField] private Animator star2Animator;
     [SerializeField] private Animator star3Animator;
-
     [SerializeField] private GameObject starsContainer;
 
+    [Header("Data Collection")]
+    [SerializeField] private string googleSheetsURL;
 
     private List<Question> shuffledQuestions;
 
     private int currentQuestion = 0;
+    private int correctAnswers = 0;
     private int points = 0;
     private float timer = 0f;
+    private float questionTimer = 0f;
 
 
     private class AnswerOption
@@ -63,6 +66,10 @@ public class QuizManager : MonoBehaviour
 
     private void Start()
     {
+        SetParticipantID();
+        SetAttempt();
+        StartCoroutine(StartAttempt());
+
         ApplySettings();
 
         shuffledQuestions = new List<Question>(csvReader.questions);
@@ -82,10 +89,50 @@ public class QuizManager : MonoBehaviour
         ShowQuestion();
     }
 
+    private IEnumerator StartAttempt()
+    {
+        string url = googleSheetsURL
+            + "?action=start"
+            + "&participantID=" + UnityWebRequest.EscapeURL(QuizData.participantID)
+            + "&attempts=" + QuizData.attempts;
+
+        UnityWebRequest request = UnityWebRequest.Get(url);
+
+        yield return request.SendWebRequest();
+
+        if (request.result == UnityWebRequest.Result.Success)
+        {
+            string response = request.downloadHandler.text;
+
+            Debug.Log("Attempt started: " + response);
+
+            StartAttemptResponse data =
+                JsonUtility.FromJson<StartAttemptResponse>(response);
+
+            if (data.success)
+            {
+                QuizData.sheetRow = data.row;
+                Debug.Log("Sheet row saved: " + QuizData.sheetRow);
+            }
+        }
+        else
+        {
+            Debug.LogError("Failed to start attempt: " + request.error);
+        }
+    }
+
+    [System.Serializable]
+    private class StartAttemptResponse
+    {
+        public bool success;
+        public int row;
+    }
+
 
     private void Update()
     {
         timer += Time.deltaTime;
+        questionTimer += Time.deltaTime;
 
         int minutes = Mathf.FloorToInt(timer / 60f);
         int seconds = Mathf.FloorToInt(timer % 60f);
@@ -125,6 +172,8 @@ public class QuizManager : MonoBehaviour
 
     private void ShowQuestion()
     {
+        questionTimer = 0f;
+
         Question question = shuffledQuestions[currentQuestion];
 
         questionText.text = question.question;
@@ -240,7 +289,19 @@ public class QuizManager : MonoBehaviour
 
     private void HandleCorrectAnswer(Button selectedButton)
     {
-        points += 10;
+        correctAnswers++;
+        int earnedPoints;
+
+        if (questionTimer < 5f)
+        {
+            earnedPoints = 20;
+        }
+        else
+        {
+            earnedPoints = 10;
+        }
+
+        points += earnedPoints;
 
         SetButtonColor(selectedButton, Color.green);
 
@@ -249,7 +310,7 @@ public class QuizManager : MonoBehaviour
         if (SettingsManager.PointsEnabled)
         {
             pointsText.text = points.ToString();
-            ShowPointsPopup();
+            ShowPointsPopup(earnedPoints);
         }
 
         if (SettingsManager.StarsEnabled)
@@ -257,7 +318,7 @@ public class QuizManager : MonoBehaviour
             UpdateStars();
         }
 
-        Debug.Log("Correct! +10 points");
+        Debug.Log("Correct! +" + earnedPoints + " points");
     }
 
 
@@ -293,10 +354,15 @@ public class QuizManager : MonoBehaviour
     // GAMIFICATION
     // -------------------------
 
-    private void ShowPointsPopup()
+    private void ShowPointsPopup(int earnedPoints)
     {
         GameObject popup =
             Instantiate(pointsPopupPrefab, popupParent);
+
+        TMP_Text popupText =
+            popup.GetComponent<TMP_Text>();
+
+        popupText.text = "+" + earnedPoints;
 
         popup.transform.SetAsLastSibling();
     }
@@ -318,8 +384,6 @@ public class QuizManager : MonoBehaviour
 
     private void UpdateStars()
     {
-        int correctAnswers = points / 10;
-
         if (correctAnswers >= 4 &&
             star1.sprite != fullStar)
         {
@@ -380,6 +444,38 @@ public class QuizManager : MonoBehaviour
         }
     }
 
+    private void SetParticipantID()
+    {
+        if (PlayerPrefs.HasKey("ParticipantID"))
+        {
+            QuizData.participantID = PlayerPrefs.GetString("ParticipantID");
+        }
+        else
+        {
+            QuizData.participantID =
+                System.Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper();
+
+            PlayerPrefs.SetString("ParticipantID", QuizData.participantID);
+            PlayerPrefs.Save();
+        }
+
+        Debug.Log("Participant ID: " + QuizData.participantID);
+    }
+
+    private void SetAttempt()
+    {
+        int attempts = PlayerPrefs.GetInt("Attempts", 0);
+
+        attempts++;
+
+        PlayerPrefs.SetInt("Attempts", attempts);
+        PlayerPrefs.Save();
+
+        QuizData.attempts = attempts;
+
+        Debug.Log("Attempt: " + QuizData.attempts);
+    }
+
 
     // -------------------------
     // NEXT / FINISH
@@ -399,16 +495,60 @@ public class QuizManager : MonoBehaviour
         }
     }
 
-
     private void FinishQuiz()
     {
         QuizData.points = points;
         QuizData.totalQuestions = shuffledQuestions.Count;
+        QuizData.correctAnswers = correctAnswers;
         QuizData.completionTime = timer;
 
-        Debug.Log("Quiz finished!");
-        Debug.Log("Score: " + points);
-        Debug.Log("Time: " + timer + " seconds");
+        StartCoroutine(CompleteAttempt());
+    }
+
+    private IEnumerator CompleteAttempt()
+    {
+        float accuracy =
+            ((float)correctAnswers / shuffledQuestions.Count) * 100f;
+
+        string gamificationUsed = "";
+
+        if (SettingsManager.PointsEnabled)
+            gamificationUsed += "Points, ";
+
+        if (SettingsManager.ProgressBarEnabled)
+            gamificationUsed += "Progress Bar, ";
+
+        if (SettingsManager.StarsEnabled)
+            gamificationUsed += "Stars";
+
+        gamificationUsed = gamificationUsed.TrimEnd(',', ' ');
+
+        if (string.IsNullOrEmpty(gamificationUsed))
+            gamificationUsed = "-";
+
+        string url = googleSheetsURL
+            + "?action=complete"
+            + "&row=" + QuizData.sheetRow
+            + "&score=" + points
+            + "&totalQuestions=" + shuffledQuestions.Count
+            + "&correctAnswers=" + correctAnswers
+            + "&accuracy=" + accuracy
+            + "&completionTime=" + timer
+            + "&attempts=" + QuizData.attempts
+            + "&gamificationUsed=" + UnityWebRequest.EscapeURL(gamificationUsed);
+
+        UnityWebRequest request = UnityWebRequest.Get(url);
+
+        yield return request.SendWebRequest();
+
+        if (request.result == UnityWebRequest.Result.Success)
+        {
+            Debug.Log("Attempt completed successfully.");
+        }
+        else
+        {
+            Debug.LogError("Failed to complete attempt: " + request.error);
+        }
 
         SceneManager.LoadScene(4);
     }
