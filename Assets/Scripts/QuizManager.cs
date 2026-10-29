@@ -38,9 +38,6 @@ public class QuizManager : MonoBehaviour
     [SerializeField] private Animator star3Animator;
     [SerializeField] private GameObject starsContainer;
 
-    [Header("Data Collection")]
-    [SerializeField] private string googleSheetsURL;
-
     private List<Question> shuffledQuestions;
 
     private int currentQuestion = 0;
@@ -69,7 +66,7 @@ public class QuizManager : MonoBehaviour
         SetAttempt();
 
         QuizDataUploader.Instance.StartAttempt(
-            googleSheetsURL,
+            AppConfig.GoogleAppsScriptUrl,
             QuizData.participantID,
             QuizData.attempts
             );
